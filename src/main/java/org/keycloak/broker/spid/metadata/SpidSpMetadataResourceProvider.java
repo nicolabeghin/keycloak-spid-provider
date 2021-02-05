@@ -16,6 +16,7 @@ package org.keycloak.broker.spid.metadata;
 
 import org.jboss.logging.Logger;
 
+import org.keycloak.broker.spid.SpidIdentityProviderConfig;
 import org.keycloak.common.util.PemUtils;
 import org.keycloak.crypto.KeyStatus;
 import org.keycloak.dom.saml.v2.metadata.AttributeConsumingServiceType;
@@ -49,11 +50,7 @@ import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyPair;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import javax.ws.rs.GET;
@@ -83,9 +80,28 @@ public class SpidSpMetadataResourceProvider implements RealmResourceProvider {
     protected static final Logger logger = Logger.getLogger(SpidSpMetadataResourceProvider.class);
 
     private KeycloakSession session;
+    private static Set<String> REQUESTED_ATTRIBUTES = new HashSet<>();
 
     public SpidSpMetadataResourceProvider(KeycloakSession session) {
         this.session = session;
+    }
+
+    static {
+        REQUESTED_ATTRIBUTES.add("name");
+        REQUESTED_ATTRIBUTES.add("familyName");
+        REQUESTED_ATTRIBUTES.add("fiscalNumber");
+        REQUESTED_ATTRIBUTES.add("placeOfBirth");
+        REQUESTED_ATTRIBUTES.add("dateOfBirth");
+        REQUESTED_ATTRIBUTES.add("mobilePhone");
+        REQUESTED_ATTRIBUTES.add("gender");
+        REQUESTED_ATTRIBUTES.add("email");
+        REQUESTED_ATTRIBUTES.add("spidCode");
+        REQUESTED_ATTRIBUTES.add("countyOfBirth");
+        REQUESTED_ATTRIBUTES.add("digitalAddress");
+        REQUESTED_ATTRIBUTES.add("address");
+        REQUESTED_ATTRIBUTES.add("ivaCode");
+        REQUESTED_ATTRIBUTES.add("companyName");
+        REQUESTED_ATTRIBUTES.add("registeredOffice");
     }
 
     @Override
@@ -161,9 +177,8 @@ public class SpidSpMetadataResourceProvider implements RealmResourceProvider {
 
             Integer attributeConsumingServiceIndex = firstSpidProvider.getConfig().getAttributeConsumingServiceIndex();
             Set<IdentityProviderMapperModel> lstFirstProviderMappers = realm.getIdentityProviderMappersByAlias(firstSpidProvider.getConfig().getAlias());
-            List<String> requestedAttributeNames = lstFirstProviderMappers.stream().filter(t -> t.getIdentityProviderMapper().equals(SpidUserAttributeMapper.PROVIDER_ID))
-                .map(t -> t.getConfig().get(SpidUserAttributeMapper.ATTRIBUTE_NAME))
-                .collect(Collectors.toList());
+            lstFirstProviderMappers.stream().filter(t -> t.getIdentityProviderMapper().equals(SpidUserAttributeMapper.PROVIDER_ID))
+                .forEach(t -> REQUESTED_ATTRIBUTES.add(t.getConfig().get(SpidIdentityProviderConfig.PRINCIPAL_ATTRIBUTE)));
 
             String strAttributeConsumingServiceNames = firstSpidProvider.getConfig().getAttributeConsumingServiceNames();
             String[] attributeConsumingServiceNames = strAttributeConsumingServiceNames != null ? strAttributeConsumingServiceNames.split(","): null;
@@ -180,7 +195,7 @@ public class SpidSpMetadataResourceProvider implements RealmResourceProvider {
             String descriptor = getSPDescriptor(authnBinding, assertionEndpoints, logoutEndpoints,
               wantAuthnRequestsSigned, wantAssertionsSigned, wantAssertionsEncrypted,
               entityId, nameIDPolicyFormat, signingKeys, encryptionKeys,
-              attributeConsumingServiceIndex, attributeConsumingServiceNames, requestedAttributeNames,
+              attributeConsumingServiceIndex, attributeConsumingServiceNames, new ArrayList<>(REQUESTED_ATTRIBUTES),
               organizationNames, organizationDisplayNames, organizationUrls);
 
             if (firstSpidProvider.getConfig().isSignSpMetadata()) {
