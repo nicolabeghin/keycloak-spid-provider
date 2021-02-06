@@ -19,17 +19,7 @@ import org.jboss.logging.Logger;
 import org.keycloak.broker.spid.SpidIdentityProviderConfig;
 import org.keycloak.common.util.PemUtils;
 import org.keycloak.crypto.KeyStatus;
-import org.keycloak.dom.saml.v2.metadata.AttributeConsumingServiceType;
-import org.keycloak.dom.saml.v2.metadata.EndpointType;
-import org.keycloak.dom.saml.v2.metadata.EntityDescriptorType;
-import org.keycloak.dom.saml.v2.metadata.IndexedEndpointType;
-import org.keycloak.dom.saml.v2.metadata.KeyDescriptorType;
-import org.keycloak.dom.saml.v2.metadata.KeyTypes;
-import org.keycloak.dom.saml.v2.metadata.LocalizedNameType;
-import org.keycloak.dom.saml.v2.metadata.LocalizedURIType;
-import org.keycloak.dom.saml.v2.metadata.OrganizationType;
-import org.keycloak.dom.saml.v2.metadata.RequestedAttributeType;
-import org.keycloak.dom.saml.v2.metadata.SPSSODescriptorType;
+import org.keycloak.dom.saml.v2.metadata.*;
 import org.keycloak.keys.RsaKeyMetadata;
 import org.keycloak.models.KeyManager;
 import org.keycloak.models.IdentityProviderModel;
@@ -196,7 +186,7 @@ public class SpidSpMetadataResourceProvider implements RealmResourceProvider {
               wantAuthnRequestsSigned, wantAssertionsSigned, wantAssertionsEncrypted,
               entityId, nameIDPolicyFormat, signingKeys, encryptionKeys,
               attributeConsumingServiceIndex, attributeConsumingServiceNames, new ArrayList<>(REQUESTED_ATTRIBUTES),
-              organizationNames, organizationDisplayNames, organizationUrls);
+              organizationNames, organizationDisplayNames, organizationUrls, buildContactPerson(firstSpidProvider));
 
             if (firstSpidProvider.getConfig().isSignSpMetadata()) {
                 KeyManager.ActiveRsaKey activeKey = session.keys().getActiveRsaKey(realm);
@@ -230,11 +220,31 @@ public class SpidSpMetadataResourceProvider implements RealmResourceProvider {
             return configEntityId;
     }
 
+    private ContactType buildContactPerson(SpidIdentityProvider firstSpidProvider) {
+        ContactType contactPerson = new ContactType(ContactTypeType.OTHER);
+//        if (firstSpidProvider.getConfig().getContactCompany() != null) {
+//            contactPerson.setCompany(firstSpidProvider.getConfig().getContactCompany());
+//        }
+//        if (firstSpidProvider.getConfig().getContactEmail() != null) {
+//            contactPerson.addEmailAddress(firstSpidProvider.getConfig().getContactEmail());
+//        }
+//        if (firstSpidProvider.getConfig().getContactPhone() != null) {
+//            contactPerson.addTelephone(firstSpidProvider.getConfig().getContactPhone());
+//        }
+        contactPerson.setCompany("Prova Srl");
+        contactPerson.addEmailAddress("prova@prova.com");
+        contactPerson.addTelephone("123456789");
+        ExtensionsType extensionsType = new ExtensionsType();
+        extensionsType.addExtension(new SpidSpMetadataExtensionGenerator("VATNumber", "123456789"));
+        contactPerson.setExtensions(extensionsType);
+        return contactPerson;
+    }
+
     private static String getSPDescriptor(URI binding, List<URI> assertionEndpoints, List<URI> logoutEndpoints,
         boolean wantAuthnRequestsSigned, boolean wantAssertionsSigned, boolean wantAssertionsEncrypted,
         String entityId, String nameIDPolicyFormat, List<Element> signingCerts, List<Element> encryptionCerts,
         Integer attributeConsumingServiceIndex, String[] attributeConsumingServiceNames, List<String> requestedAttributeNames,
-        String[] organizationNames, String[] organizationDisplayNames, String[] organizationUrls) 
+        String[] organizationNames, String[] organizationDisplayNames, String[] organizationUrls, ContactType contactPerson)
         throws XMLStreamException, ProcessingException, ParserConfigurationException
     {
         StringWriter sw = new StringWriter();
@@ -360,6 +370,7 @@ public class SpidSpMetadataResourceProvider implements RealmResourceProvider {
             }
 
             entityDescriptor.setOrganization(organizationType);
+            entityDescriptor.addContactPerson(contactPerson);
         }
 
         metadataWriter.writeEntityDescriptor(entityDescriptor);
