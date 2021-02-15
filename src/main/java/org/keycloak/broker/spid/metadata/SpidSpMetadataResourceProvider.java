@@ -71,6 +71,8 @@ public class SpidSpMetadataResourceProvider implements RealmResourceProvider {
 
     private KeycloakSession session;
     private static Set<String> REQUESTED_ATTRIBUTES = new HashSet<>();
+    private static final String SPID_EXTENSION_NAMESPACE = "https://spid.gov.it/saml-extensions";
+    private static final String SPID_EXTENSION_PREFIX = "spid";
 
     public SpidSpMetadataResourceProvider(KeycloakSession session) {
         this.session = session;
@@ -206,11 +208,28 @@ public class SpidSpMetadataResourceProvider implements RealmResourceProvider {
                 descriptor = DocumentUtil.getDocumentAsString(metadataDocument);
             }
 
-            return Response.ok(descriptor, MediaType.APPLICATION_XML_TYPE).build();
+            return Response.ok(applyTemporarySpid29v3Workaround(descriptor, firstSpidProvider), MediaType.APPLICATION_XML_TYPE).build();
         } catch (Exception e) {
             logger.warn("Failed to export SAML SP Metadata!", e);
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Quick and dirty temporary workaround for SPID avviso n. 29v3 SAML extensions
+     *
+     * @return
+     * @url https://www.agid.gov.it/sites/default/files/repository_files/spid-avviso-n29v3-specifiche_sp_pubblici_e_privati.pdf
+     * @url https://github.com/lscorcia/keycloak-spid-provider/issues/5
+     */
+    private static String applyTemporarySpid29v3Workaround(String xml, SpidIdentityProvider firstSpidProvider) {
+        if (firstSpidProvider.getConfig().getContactIPACode() != null && firstSpidProvider.getConfig().getContactIPACode().length() > 0) {
+            String extensions = "<" + SPID_EXTENSION_PREFIX + ":IPACode>" + firstSpidProvider.getConfig().getContactIPACode() + "</" + SPID_EXTENSION_PREFIX + ":IPACode><" + SPID_EXTENSION_PREFIX + ":Public />";
+            return xml
+                    .replace(" xmlns:saml=", " xmlns:" + SPID_EXTENSION_PREFIX + "=\"" + SPID_EXTENSION_NAMESPACE + "\" xmlns:saml=")
+                    .replace("<md:ContactPerson contactType=\"other\">", "<md:ContactPerson contactType=\"other\"><md:Extensions>" + extensions + "</md:Extensions>");
+        }
+        return xml;
     }
 
     private String getEntityId(String configEntityId, UriInfo uriInfo, RealmModel realm) {
@@ -222,21 +241,15 @@ public class SpidSpMetadataResourceProvider implements RealmResourceProvider {
 
     private ContactType buildContactPerson(SpidIdentityProvider firstSpidProvider) {
         ContactType contactPerson = new ContactType(ContactTypeType.OTHER);
-//        if (firstSpidProvider.getConfig().getContactCompany() != null) {
-//            contactPerson.setCompany(firstSpidProvider.getConfig().getContactCompany());
-//        }
-//        if (firstSpidProvider.getConfig().getContactEmail() != null) {
-//            contactPerson.addEmailAddress(firstSpidProvider.getConfig().getContactEmail());
-//        }
-//        if (firstSpidProvider.getConfig().getContactPhone() != null) {
-//            contactPerson.addTelephone(firstSpidProvider.getConfig().getContactPhone());
-//        }
-        contactPerson.setCompany("Prova Srl");
-        contactPerson.addEmailAddress("prova@prova.com");
-        contactPerson.addTelephone("123456789");
-        ExtensionsType extensionsType = new ExtensionsType();
-        extensionsType.addExtension(new SpidSpMetadataExtensionGenerator("VATNumber", "123456789"));
-        contactPerson.setExtensions(extensionsType);
+        if (firstSpidProvider.getConfig().getContactCompany() != null) {
+            contactPerson.setCompany(firstSpidProvider.getConfig().getContactCompany());
+        }
+        if (firstSpidProvider.getConfig().getContactEmail() != null) {
+            contactPerson.addEmailAddress(firstSpidProvider.getConfig().getContactEmail());
+        }
+        if (firstSpidProvider.getConfig().getContactPhone() != null) {
+            contactPerson.addTelephone(firstSpidProvider.getConfig().getContactPhone());
+        }
         return contactPerson;
     }
 

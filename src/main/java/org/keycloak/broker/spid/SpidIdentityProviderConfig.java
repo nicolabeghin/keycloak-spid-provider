@@ -63,6 +63,8 @@ public class SpidIdentityProviderConfig extends IdentityProviderModel {
     public static final String CONTACT_COMPANY = "contactCompanyName";
     public static final String CONTACT_PHONE = "contactPhone";
     public static final String CONTACT_EMAIL = "contactEmail";
+    public static final String CONTACT_PUBLIC = "contactPublic";
+    public static final String CONTACT_IPACODE = "contactIPACode";
 
     public SpidIdentityProviderConfig(){
     }
@@ -406,6 +408,22 @@ public class SpidIdentityProviderConfig extends IdentityProviderModel {
 
     public String getContactEmail() {
         return getConfig().get(CONTACT_EMAIL);
+    }
+
+    public String getContactIPACode() {
+        return getConfig().get(CONTACT_IPACODE);
+    }
+
+    public void setContactIPACode(String ipaCode) {
+        getConfig().put(CONTACT_IPACODE, ipaCode);
+    }
+
+    public boolean isPublic() {
+        return Boolean.valueOf(getConfig().get(CONTACT_IPACODE));
+    }
+
+    public void setPublic(String pub) {
+        getConfig().put(CONTACT_PUBLIC, String.valueOf(pub));
     }
 
     public String getContactCompany() {
